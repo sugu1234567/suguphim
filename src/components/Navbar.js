@@ -232,9 +232,46 @@ export default function Navbar() {
               type="text"
               placeholder="Tìm kiếm phim..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                // Debounce (800ms) before fetching suggestions from API (mobile)
+                if (window.searchDebounce) clearTimeout(window.searchDebounce);
+                window.searchDebounce = setTimeout(async () => {
+                  const query = e.target.value.trim();
+                  if (!query) { setSuggestions([]); return; }
+                  try {
+                    const res = await searchMovies(query, 1, 5);
+                    if (res && res.status === 'success') {
+                      const items = res.data?.items || [];
+                      const sugg = items.map(item => {
+                        const title = item.title || item.name || item.origin_name || '';
+                        const imgPath = item.poster_url || item.thumb_url || (item.seoOnPage?.og_image?.[0] ?? '');
+                        const img = imgPath ? `https://phimimg.com/${imgPath.replace(/^\//, '')}` : '';
+                        return { title, img };
+                      }).filter(s => s.title);
+                      setSuggestions(sugg);
+                    } else { setSuggestions([]); }
+                  } catch (err) { console.error('Suggestion fetch error', err); setSuggestions([]); }
+                }, 800);
+              }}
               className="search-input"
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
             />
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="search-suggestions glass-panel mobile-suggestions">
+                {suggestions.map((sugg, idx) => (
+                  <div key={idx} className="search-suggestion-item" onMouseDown={() => {
+                    setSearchQuery(sugg.title);
+                    setShowSuggestions(false);
+                    router.push(`/tim-kiem?q=${encodeURIComponent(sugg.title)}`);
+                  }}>
+                    {sugg.img && (<img src={sugg.img} alt={sugg.title} className="suggestion-img" />)}
+                    <span className="suggestion-text">{sugg.title}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <button type="submit" className="search-btn">Tìm</button>
           </form>
 

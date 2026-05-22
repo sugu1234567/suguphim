@@ -549,7 +549,7 @@ a {
   z-index: 999;
   padding: 24px;
   border-top: 1px solid rgba(220, 38, 38, 0.1);
-  display: flex;
+  background: linear-gradient(135deg, #0a0a0a 36%, var(--primary-red) 200%);
   flex-direction: column;
   gap: 20px;
 }
@@ -565,6 +565,8 @@ a {
   border: 1px solid var(--glass-border);
   border-radius: 8px;
   padding: 4px 8px;
+  position: relative;
+  /* Added for dropdown positioning */
 }
 
 .mobile-search-form .search-input {
