@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { fetchCategories, fetchCountries } from '@/services/api';
+import { fetchCategories, fetchCountries, searchMovies } from '@/services/api';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Hành Động', slug: 'hanh-dong' },
@@ -31,9 +31,11 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [scrolled, setScrolled] = useState(false);
-  
   const [activeDropdown, setActiveDropdown] = useState(null); // 'categories' | 'countries' | null
-  
+  // New states for search suggestions
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   const router = useRouter();
   const dropdownRef = useRef(null);
 
@@ -43,7 +45,7 @@ export default function Navbar() {
       try {
         const cats = await fetchCategories();
         if (cats && cats.length > 0) setCategories(cats);
-        
+
         const cunts = await fetchCountries();
         if (cunts && cunts.length > 0) setCountries(cunts);
       } catch (err) {
@@ -51,7 +53,7 @@ export default function Navbar() {
       }
     }
     loadNavData();
-    
+
     const handleScroll = () => {
       if (window.scrollY > 20) {
         setScrolled(true);
@@ -59,7 +61,7 @@ export default function Navbar() {
         setScrolled(false);
       }
     };
-    
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -105,7 +107,7 @@ export default function Navbar() {
           <Link href="/danh-sach/phim-bo" className="nav-link">Phim Bộ</Link>
           <Link href="/danh-sach/hoat-hinh" className="nav-link">Hoạt Hình</Link>
           <Link href="/danh-sach/tv-shows" className="nav-link">TV Shows</Link>
-          
+
           {/* Categories Dropdown */}
           <div className="dropdown-wrapper">
             <button className={`nav-link dropdown-toggle ${activeDropdown === 'categories' ? 'active' : ''}`} onClick={() => toggleDropdown('categories')}>
@@ -115,7 +117,7 @@ export default function Navbar() {
               <div className="dropdown-menu grid-dropdown animated-fade-in">
                 {categories.map((cat) => (
                   <Link key={cat.slug} href={`/the-loai/${cat.slug}`} className="dropdown-item" onClick={() => setActiveDropdown(null)}>
-                    {cat.name}
+                    {cat.name}{cat.origin_name ? ` (${cat.origin_name})` : ''}
                   </Link>
                 ))}
               </div>
@@ -131,7 +133,7 @@ export default function Navbar() {
               <div className="dropdown-menu grid-dropdown animated-fade-in">
                 {countries.map((cnt) => (
                   <Link key={cnt.slug} href={`/quoc-gia/${cnt.slug}`} className="dropdown-item" onClick={() => setActiveDropdown(null)}>
-                    {cnt.name}
+                    {cnt.name}{cnt.origin_name ? ` (${cnt.origin_name})` : ''}
                   </Link>
                 ))}
               </div>
@@ -140,17 +142,74 @@ export default function Navbar() {
         </nav>
 
         {/* Search Form */}
-        <form onSubmit={handleSearchSubmit} className="search-form desktop-only">
+        <form onSubmit={handleSearchSubmit} className="search-form desktop-only" autoComplete="off">
           <input
             type="text"
             placeholder="Tìm kiếm phim..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Debounce (800ms) before fetching suggestions from API
+              if (window.searchDebounce) clearTimeout(window.searchDebounce);
+              window.searchDebounce = setTimeout(async () => {
+                const query = e.target.value.trim();
+                if (!query) {
+                  setSuggestions([]);
+                  return;
+                }
+                try {
+                  const res = await searchMovies(query, 1, 5);
+                  if (res && res.status === 'success') {
+                    const items = res.data?.items || [];
+                    const sugg = items.map(item => {
+                      const title = item.title || item.name || item.origin_name || '';
+                      // Try poster_url, then thumb_url, then seoOnPage og_image first image
+                      const imgPath = item.poster_url || item.thumb_url || (item.seoOnPage?.og_image?.[0] ?? '');
+                      const img = imgPath ? `https://phimimg.com/${imgPath.replace(/^\//, '')}` : '';
+                      return { title, img };
+                    }).filter(s => s.title);
+                    setSuggestions(sugg);
+                  } else {
+                    setSuggestions([]);
+                  }
+                } catch (err) {
+                  console.error('Suggestion fetch error', err);
+                  setSuggestions([]);
+                }
+              }, 800);
+            }}
             className="search-input"
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 200)} // delay to allow click
           />
           <button type="submit" className="search-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
           </button>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="search-suggestions glass-panel">
+              {suggestions.map((sugg, idx) => (
+                <div
+                  key={idx}
+                  className="search-suggestion-item"
+                  onMouseDown={() => {
+                    setSearchQuery(sugg.title);
+                    setShowSuggestions(false);
+                    // Navigate to search results directly
+                    router.push(`/tim-kiem?q=${encodeURIComponent(sugg.title)}`);
+                  }}
+                >
+                  {sugg.img && (
+                    <img src={sugg.img} alt={sugg.title} className="suggestion-img" />
+                  )}
+                  <span className="suggestion-text">{sugg.title}</span>
+                </div>
+              ))}
+
+            </div>
+          )}
         </form>
 
         {/* Mobile Toggle & Search */}
@@ -184,7 +243,7 @@ export default function Navbar() {
             <Link href="/danh-sach/phim-bo" className="mobile-nav-link" onClick={() => setIsMobileMenuOpen(false)}>Phim Bộ</Link>
             <Link href="/danh-sach/hoat-hinh" className="mobile-nav-link" onClick={() => setIsMobileMenuOpen(false)}>Hoạt Hình</Link>
             <Link href="/danh-sach/tv-shows" className="mobile-nav-link" onClick={() => setIsMobileMenuOpen(false)}>TV Shows</Link>
-            
+
             {/* Quick list of top categories */}
             <div className="mobile-section">
               <div className="mobile-section-header">Thể Loại</div>
