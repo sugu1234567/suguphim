@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getImageUrl } from '@/services/api';
@@ -52,7 +52,46 @@ export default function WatchClient({ movie, episodes, initialServer = 0, initia
   };
 
   
-  // Sync state with URL query parameters if they change
+  // State for gesture controls
+  const [brightness, setBrightness] = useState(1); // range 0.5 - 1.5
+  const [volume, setVolume] = useState(1); // range 0 - 1
+  // Refs to track touch start positions
+  const touchStart = useRef({ x: 0, y: 0, brightness: 1, volume: 1 });
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    touchStart.current = {
+      x: touch.clientX - rect.left,
+      y: touch.clientY - rect.top,
+      brightness,
+      volume,
+    };
+  };
+
+  const handleTouchMove = (e) => {
+    const touch = e.touches[0];
+    const rect = e.currentTarget.getBoundingClientRect();
+    const curX = touch.clientX - rect.left;
+    const curY = touch.clientY - rect.top;
+    const deltaX = curX - touchStart.current.x;
+    const deltaY = curY - touchStart.current.y;
+    const width = rect.width;
+
+    // Right half -> vertical swipe adjusts volume
+    if (touchStart.current.x > width / 2) {
+      const newVol = Math.min(1, Math.max(0, touchStart.current.volume - deltaY / rect.height));
+      setVolume(newVol);
+    } else {
+      // Left half -> horizontal swipe adjusts brightness
+      const newBright = Math.min(1.5, Math.max(0.5, touchStart.current.brightness + deltaX / width));
+      setBrightness(newBright);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // No action needed; state already updated
+  };
   useEffect(() => {
     const serverParam = searchParams.get('server');
     const epParam = searchParams.get('episode');
@@ -149,14 +188,21 @@ export default function WatchClient({ movie, episodes, initialServer = 0, initia
         </div>
 
         {/* Streaming Video Container */}
-        <div className="player-container animated-fade-in">
+        <div className="player-container animated-fade-in"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          style={{ filter: `brightness(${brightness})` }}
+        >
           {iframeUrl ? (
             <iframe
               src={iframeUrl}
               className="iframe-player"
+              allow="autoplay"
               allowFullScreen
               scrolling="no"
               title={`Trình phát phim: ${movie.name} - ${episodeName}`}
+              style={{ filter: `brightness(${brightness})`, opacity: volume }}
             ></iframe>
           ) : (
             <div className="loader-container" style={{ height: '100%' }}>

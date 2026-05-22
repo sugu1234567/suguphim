@@ -149,7 +149,7 @@ export default function Navbar() {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              // Debounce (800ms) before fetching suggestions from API
+              // Debounce (300ms) before fetching suggestions from API
               if (window.searchDebounce) clearTimeout(window.searchDebounce);
               window.searchDebounce = setTimeout(async () => {
                 const query = e.target.value.trim();
@@ -176,7 +176,7 @@ export default function Navbar() {
                   console.error('Suggestion fetch error', err);
                   setSuggestions([]);
                 }
-              }, 800);
+              }, 300);
             }}
             className="search-input"
             onFocus={() => setShowSuggestions(true)}
@@ -234,7 +234,7 @@ export default function Navbar() {
               value={searchQuery}
               onChange={(e) => {
                 setSearchQuery(e.target.value);
-                // Debounce (800ms) before fetching suggestions from API (mobile)
+                // Debounce (300ms) before fetching suggestions from API (mobile)
                 if (window.searchDebounce) clearTimeout(window.searchDebounce);
                 window.searchDebounce = setTimeout(async () => {
                   const query = e.target.value.trim();
@@ -252,7 +252,7 @@ export default function Navbar() {
                       setSuggestions(sugg);
                     } else { setSuggestions([]); }
                   } catch (err) { console.error('Suggestion fetch error', err); setSuggestions([]); }
-                }, 800);
+                }, 300);
               }}
               className="search-input"
               onFocus={() => setShowSuggestions(true)}
