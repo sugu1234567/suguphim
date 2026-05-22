@@ -112,7 +112,7 @@ export default function Navbar() {
               Thể Loại <span className="arrow-down"></span>
             </button>
             {activeDropdown === 'categories' && (
-              <div className="dropdown-menu grid-dropdown glass-panel animated-fade-in">
+              <div className="dropdown-menu grid-dropdown animated-fade-in">
                 {categories.map((cat) => (
                   <Link key={cat.slug} href={`/the-loai/${cat.slug}`} className="dropdown-item" onClick={() => setActiveDropdown(null)}>
                     {cat.name}
@@ -128,7 +128,7 @@ export default function Navbar() {
               Quốc Gia <span className="arrow-down"></span>
             </button>
             {activeDropdown === 'countries' && (
-              <div className="dropdown-menu grid-dropdown glass-panel animated-fade-in">
+              <div className="dropdown-menu grid-dropdown animated-fade-in">
                 {countries.map((cnt) => (
                   <Link key={cnt.slug} href={`/quoc-gia/${cnt.slug}`} className="dropdown-item" onClick={() => setActiveDropdown(null)}>
                     {cnt.name}
